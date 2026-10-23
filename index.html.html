@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title id="document-title">AGENCE AL'MASHA'IR Hotel Booking System</title>
+  <!-- Updated build: login/register, booking status warnings, payment tracking, and persistent local storage. -->
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#183B5B">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <style>
+    :root {
+      --navy: #183B5B;
+      --grey: #4D5964;
+      --light: #D9E2EC;
+      --blue: #B7C7D8;
+      --yellow-input: #FFFBE6;
+      --white: #FFFFFF;
+      --border-color: #808080;
+      --tentative-red: #D32F2F;
+      --confirmed-green: #2E7D32;
+      --cancelled-grey: #757575;
+      --paid-green: #388E3C;
+      --partial-orange: #F57C00;
+      --unpaid-red: #C62828;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    body { margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
+    
+    .container { max-width: 1300px; margin: 0 auto; }
+    
+    /* Auth Overlay & Card */
+    .auth-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(24, 59, 91, 0.85);
+      backdrop-filter: blur(4px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+    .auth-card {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+    .auth-card h2 { color: var(--navy); margin-top: 0; margin-bottom: 20px; font-size: 22px; text-transform: uppercase; letter-spacing: 1px; }
+    .auth-form-group { text-align: left; margin-bottom: 15px; }
+    .auth-form-group label { display: block; font-weight: bold; font-size: 13px; color: var(--grey); margin-bottom: 5px; }
+    .auth-form-group input { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 14px; background: var(--yellow-input); }
+    .auth-btn { width: 100%; padding: 12px; background: var(--navy); color: white; border: none; font-weight: bold; border-radius: 4px; cursor: pointer; font-size: 15px; margin-top: 10px; transition: 0.2s; }
+    .auth-btn:hover { opacity: 0.9; }
+    .auth-toggle { margin-top: 15px; font-size: 13px; color: var(--grey); cursor: pointer; text-decoration: underline; }
+
+    /* Top User Bar */
+    .top-user-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--navy);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      margin-bottom: 15px;
+    }
+    .top-user-bar .user-info { font-weight: bold; font-size: 14px; }
+    .top-user-bar .logout-btn { background: #dc3545; color: white; border: none; padding: 6px 14px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 12px; }
+
+    /* Status Badges */
+    .status-badge-tentative { color: white !important; background-color: var(--tentative-red) !important; padding: 2px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
+    .status-badge-confirmed { color: white !important; background-color: var(--confirmed-green) !important; padding: 2px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
+    .status-badge-cancelled { color: white !important; background-color: var(--cancelled-grey) !important; padding: 2px 8px; border-radius: 4px; font-weight: bold; display: inline-block; }
+
+    /* Payment Badges */
+    .pay-badge-paid { color: white; background-color: var(--paid-green); padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; }
+    .pay-badge-partial { color: white; background-color: var(--partial-orange); padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; }
+    .pay-badge-unpaid { color: white; background-color: var(--unpaid-red); padding: 2px 6px; border-radius: 3px; font-weight: bold; font-size: 11px; }
+
+    /* Install Banner */
+    .install-banner {
+      display: none;
+      background: var(--navy);
+      color: white;
+      padding: 12px 20px;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .install-banner button {
+      background: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--navy); }
+    .tab-btn {
+      padding: 12px 24px; border: none; background: #e0e0e0; cursor: pointer;
+      font-weight: bold; border-radius: 6px 6px 0 0; color: var(--grey); transition: 0.2s;
+    }
+    .tab-btn.active { background: var(--navy); color: var(--white); }
+
+    .tab-content { display: none; background: white; padding: 25px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .tab-content.active { display: block; }
+
+    /* Forms */
+    .header-banner {
+      background: var(--navy); color: white; text-align: center;
+      padding: 15px; font-size: 1.6rem; font-weight: 900; letter-spacing: 1px; margin-bottom: 20px;
+    }
+    
+    .form-grid { display: grid; grid-template-columns: 200px 1fr; gap: 10px; align-items: center; }
+    .form-label { background: var(--light); padding: 10px; font-weight: bold; color: var(--grey); border: 1px solid var(--border-color); }
+    .form-input { padding: 8px; border: 1px solid var(--border-color); background: var(--yellow-input); width: 100%; font-size: 14px; }
+    .form-input[readonly] { background: var(--light); font-weight: bold; }
+    .form-input.highlight { background: var(--blue); font-weight: bold; font-size: 16px; }
+
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+    .action-btn {
+      padding: 12px 20px; background: var(--navy);
+      color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 4px;
+    }
+    .action-btn:hover { opacity: 0.9; }
+
+    .clear-btn {
+      padding: 12px 20px; background: #dc3545;
+      color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 4px;
+    }
+    .clear-btn:hover { background: #c82333; }
+
+    /* Database Action Buttons */
+    .db-action-btn {
+      padding: 5px 10px;
+      color: white;
+      border: none;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 3px;
+      font-size: 11px;
+      margin-right: 4px;
+    }
+    .btn-edit { background: #ffc107; color: #000; }
+    .btn-pay { background: #28a745; }
+    .btn-print-v { background: var(--navy); }
+    .btn-print-r { background: #17a2b8; }
+    .btn-delete { background: #dc3545; }
+    .db-action-btn:hover { opacity: 0.85; }
+
+    /* Header Design */
+    .company-title-large {
+      font-size: 32px;
+      font-weight: 900;
+      color: var(--navy);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 0;
+      line-height: 1.1;
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid var(--navy);
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    /* Printable Sheets */
+    .conf-sheet { 
+      border: 2px solid var(--border-color); 
+      padding: 20px; 
+      background: white; 
+      width: 100%;
+      margin: 0 auto;
+    }
+    .conf-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .conf-table th { 
+      background-color: var(--navy) !important; 
+      color: white !important; 
+      padding: 8px 4px; 
+      font-size: 12px; 
+      border: 1px solid var(--border-color);
+    }
+    .conf-table td { border: 1px solid var(--border-color); text-align: center; padding: 8px 4px; font-size: 13px; font-weight: 600; }
+
+    /* Payment Modal */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    }
+    .modal-card {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      width: 100%;
+      max-width: 450px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    /* Signature Section */
+    .signature-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 25px;
+      padding-top: 15px;
+    }
+    .signature-box {
+      width: 250px;
+      text-align: center;
+      border-top: 2px solid var(--border-color);
+      padding-top: 5px;
+      font-weight: bold;
+      font-size: 12px;
+      color: var(--grey);
+    }
+
+    /* Database Table */
+    .db-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .db-table-container { overflow-x: auto; }
+    .db-table { width: 100%; border-collapse: collapse; }
+    .db-table th { background: var(--navy); color: white; padding: 10px; font-size: 12px; }
+    .db-table td { border: 1px solid #ccc; padding: 8px; font-size: 12px; white-space: nowrap; }
+
+    /* Deployment Info Box */
+    .deployment-card {
+      background: #e8f4f8;
+      border-left: 5px solid var(--navy);
+      padding: 15px 20px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    .deployment-card h4 { margin: 0 0 8px 0; color: var(--navy); }
+    .deployment-card p { margin: 4px 0; font-size: 13px; color: var(--grey); }
+
+    /* PRINT STYLING */
+    @media print {
+      @page { size: A4 landscape; margin: 5mm; }
+      
+      html, body { 
+        width: 287mm;
+        height: 200mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white;
+        overflow: hidden !important;
+      }
+
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      body * { visibility: hidden; }
+      
+      .container { max-width: 100% !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      .tab-content.active, .tab-content.active * { visibility: visible; }
+      
+      .tab-content.active { 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100% !important; 
+        height: 100% !important;
+        padding: 0 !important; 
+        border: none !important; 
+        box-shadow: none !important;
+        overflow: hidden !important;
+      }
+      .no-print { display: none !important; }
+      
+      .conf-sheet { 
+        border: 2px solid var(--navy) !important; 
+        padding: 12px 15px !important; 
+        width: 100% !important; 
+        height: 198mm !important;
+        max-width: 100% !important;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .company-title-large { font-size: 28px !important; }
+      .sheet-header { margin-bottom: 6px !important; padding-bottom: 4px !important; }
+      
+      .intro-text { margin-top: 6px !important; font-size: 12px !important; line-height: 1.2 !important; }
+      .intro-text p { margin: 2px 0 !important; }
+
+      .info-table { margin: 8px 0 !important; font-size: 12px !important; }
+      .info-table td { padding: 3px 0 !important; }
+
+      .conf-table { margin: 8px 0 !important; }
+      .conf-table th { background-color: #183B5B !important; color: #FFFFFF !important; font-size: 11px !important; padding: 6px 3px !important; }
+      .conf-table td { font-size: 12px !important; padding: 6px 3px !important; }
+      
+      .conf-banner-navy { background-color: #183B5B !important; color: #FFFFFF !important; font-size: 11px !important; padding: 4px !important; margin-top: 8px !important; }
+      .conf-banner-blue { background-color: #B7C7D8 !important; color: #000000 !important; font-size: 20px !important; padding: 8px !important; margin: 8px 0 !important; }
+      
+      .terms-text { font-size: 10px !important; padding: 5px !important; line-height: 1.2 !important; }
+      
+      .signature-container { margin-top: 15px !important; padding-top: 8px !important; }
+      .signature-box { font-size: 11px !important; width: 220px !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- AUTHENTICATION OVERLAY -->
+<div id="authOverlay" class="auth-overlay no-print">
+  <div class="auth-card">
+    <h2 id="authTitle">Agency Login</h2>
+    <form id="authForm" onsubmit="handleAuthSubmit(event)">
+      <div class="auth-form-group">
+        <label for="authUsername">Username</label>
+        <input type="text" id="authUsername" placeholder="Enter username" required>
+      </div>
+      <div class="auth-form-group">
+        <label for="authPassword">Password</label>
+        <input type="password" id="authPassword" placeholder="Enter password" required>
+      </div>
+      <div class="auth-form-group" id="confirmPassGroup" style="display:none;">
+        <label for="authConfirmPassword">Confirm Password</label>
+        <input type="password" id="authConfirmPassword" placeholder="Confirm password">
+      </div>
+      <button type="submit" id="authSubmitBtn" class="auth-btn">Sign In</button>
+    </form>
+    <div class="auth-toggle" id="authToggleBtn" onclick="toggleAuthMode()">Don't have an account? Register Here</div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- USER BAR -->
+  <div class="top-user-bar no-print">
+    <div class="user-info">Logged in as: <span id="currentUserName">Admin</span></div>
+    <button class="logout-btn" onclick="logoutUser()">Logout</button>
+  </div>
+
+  <!-- Dynamic Installation Banner -->
+  <div id="installBanner" class="install-banner no-print">
+    <span>Install <b>AGENCE AL'MASHA'IR Booking System</b> on your PC as an App</span>
+    <button id="installBtn">Install App</button>
+  </div>
+
+  <!-- Tabs Navigation -->
+  <div class="nav-tabs no-print">
+    <button class="tab-btn active" id="tab-btn-data-entry" onclick="switchTab('data-entry')">Data Entry</button>
+    <button class="tab-btn" id="tab-btn-confirmation" onclick="switchTab('confirmation')">Booking Voucher</button>
+    <button class="tab-btn" id="tab-btn-reservation-page" onclick="switchTab('reservation-page')">Reservation Page</button>
+    <button class="tab-btn" id="tab-btn-database" onclick="switchTab('database')">Bookings Database</button>
+  </div>
+
+  <!-- 1. DATA ENTRY TAB -->
+  <div id="data-entry" class="tab-content active">
+    <div class="header-banner" id="form-header-title">AGENCE AL'MASHA'IR — HOTEL BOOKING DATA ENTRY</div>
+    <form id="bookingForm" onsubmit="saveBooking(event)">
+      <input type="hidden" id="editIndex" value="-1">
+
+      <div class="form-grid">
+        <div class="form-label">Booking No.</div>
+        <input type="text" id="bookingNo" class="form-input" placeholder="e.g. BK-1001" required>
+
+        <div class="form-label">Recup Reference No.</div>
+        <input type="text" id="recupRef" class="form-input" placeholder="Auto-generates from Check-In (e.g. 2026081201)">
+
+        <div class="form-label">Booking Status</div>
+        <select id="status" class="form-input">
+          <option value="TENTATIVE">TENTATIVE</option>
+          <option value="CONFIRMED">CONFIRMED</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+
+        <div class="form-label">City</div>
+        <select id="city" class="form-input">
+          <option value="Makkah">Makkah</option>
+          <option value="Madinah">Madinah</option>
+        </select>
+
+        <div class="form-label">Hotel</div>
+        <input type="text" id="hotel" class="form-input" placeholder="Enter Hotel Name" required>
+
+        <div class="form-label">Guest Name</div>
+        <input type="text" id="guestName" class="form-input" placeholder="Enter Guest Name" required>
+
+        <div class="form-label">Contact Number</div>
+        <input type="tel" id="contactNo" class="form-input" placeholder="Enter Contact Number">
+
+        <div class="form-label">Mail</div>
+        <input type="email" id="mail" class="form-input" placeholder="Enter Email Address">
+
+        <div class="form-label">Mobile</div>
+        <input type="tel" id="mobile" class="form-input" placeholder="Enter Mobile Number">
+
+        <div class="form-label">Nationality</div>
+        <select id="nationality" class="form-input">
+          <option value="Algeria">Algeria</option>
+          <option value="Angola">Angola</option>
+          <option value="Benin">Benin</option>
+          <option value="Botswana">Botswana</option>
+          <option value="Burkina Faso">Burkina Faso</option>
+          <option value="Burundi">Burundi</option>
+          <option value="Cabo Verde">Cabo Verde</option>
+          <option value="Cameroon">Cameroon</option>
+          <option value="Central African Republic">Central African Republic</option>
+          <option value="Chad">Chad</option>
+          <option value="Comoros">Comoros</option>
+          <option value="Congo, Democratic Republic of the">Congo (DRC)</option>
+          <option value="Congo, Republic of the">Congo (Republic)</option>
+          <option value="Cote d'Ivoire">Cote d'Ivoire</option>
+          <option value="Djibouti">Djibouti</option>
+          <option value="Egypt">Egypt</option>
+          <option value="Equatorial Guinea">Equatorial Guinea</option>
+          <option value="Eritrea">Eritrea</option>
+          <option value="Eswatini">Eswatini</option>
+          <option value="Ethiopia">Ethiopia</option>
+          <option value="Gabon">Gabon</option>
+          <option value="Gambia">Gambia</option>
+          <option value="Ghana">Ghana</option>
+          <option value="Guinea">Guinea</option>
+          <option value="Guinea-Bissau">Guinea-Bissau</option>
+          <option value="Kenya">Kenya</option>
+          <option value="Lesotho">Lesotho</option>
+          <option value="Liberia">Liberia</option>
+          <option value="Libya">Libya</option>
+          <option value="Madagascar">Madagascar</option>
+          <option value="Malawi">Malawi</option>
+          <option value="Mali">Mali</option>
+          <option value="Mauritania">Mauritania</option>
+          <option value="Mauritius">Mauritius</option>
+          <option value="Morocco">Morocco</option>
+          <option value="Mozambique">Mozambique</option>
+          <option value="Namibia">Namibia</option>
+          <option value="Niger" selected>Niger</option>
+          <option value="Nigeria">Nigeria</option>
+          <option value="Rwanda">Rwanda</option>
+          <option value="Sao Tome and Principe">Sao Tome and Principe</option>
+          <option value="Senegal">Senegal</option>
+          <option value="Seychelles">Seychelles</option>
+          <option value="Sierra Leone">Sierra Leone</option>
+          <option value="Somalia">Somalia</option>
+          <option value="South Africa">South Africa</option>
+          <option value="South Sudan">South Sudan</option>
+          <option value="Sudan">Sudan</option>
+          <option value="Tanzania">Tanzania</option>
+          <option value="Togo">Togo</option>
+          <option value="Tunisia">Tunisia</option>
+          <option value="Uganda">Uganda</option>
+          <option value="Zambia">Zambia</option>
+          <option value="Zimbabwe">Zimbabwe</option>
+        </select>
+
+        <div class="form-label">Room Type</div>
+        <select id="roomType" class="form-input">
+          <option value="1 Double">1 Double</option>
+          <option value="2 Double">2 Double</option>
+          <option value="Triple">Triple</option>
+          <option value="Quadruple">Quadruple</option>
+          <option value="Single">Single</option>
+        </select>
+
+        <div class="form-label">View</div>
+        <select id="view" class="form-input">
+          <option value="City">City</option>
+          <option value="Non City">Non City</option>
+        </select>
+
+        <div class="form-label">Meal</div>
+        <select id="meal" class="form-input">
+          <option value="Room Only">Room Only</option>
+          <option value="Breakfast">Breakfast</option>
+          <option value="Iftar" selected>Iftar</option>
+          <option value="Iftar & Suhur">Iftar & Suhur</option>
+          <option value="Half Board">Half Board</option>
+          <option value="Full Board">Full Board</option>
+        </select>
+
+        <div class="form-label">Check In</div>
+        <input type="date" id="checkIn" class="form-input" value="2026-08-12" onchange="calculateFormulas(true)">
+
+        <div class="form-label">Check Out</div>
+        <input type="date" id="checkOut" class="form-input" value="2026-08-17" onchange="calculateFormulas(false)">
+
+        <div class="form-label">Nights</div>
+        <input type="text" id="nights" class="form-input" readonly>
+
+        <div class="form-label">Guest Per Room</div>
+        <input type="number" id="guests" class="form-input" value="2">
+
+        <div class="form-label">Conf No.</div>
+        <input type="text" id="confNo" class="form-input">
+
+        <div class="form-label">Rate (SAR)</div>
+        <input type="number" step="0.01" id="rate" class="form-input" value="950" oninput="calculateFormulas(false)">
+
+        <div class="form-label">Rooms</div>
+        <input type="number" id="rooms" class="form-input" value="1" oninput="calculateFormulas(false)">
+
+        <div class="form-label">Room Price</div>
+        <input type="text" id="roomPrice" class="form-input" readonly>
+
+        <div class="form-label">Total Accommodation</div>
+        <input type="text" id="totalAcc" class="form-input highlight" readonly>
+
+        <div class="form-label">Children</div>
+        <input type="text" id="children" class="form-input" value="Two children under 6 years are allowed." readonly>
+      </div>
+
+      <div class="btn-group">
+        <button type="submit" class="action-btn" id="save-submit-btn">Save to Database</button>
+        <button type="button" class="clear-btn" onclick="clearForm()">Clear Form</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- 2. VOUCHER TAB -->
+  <div id="confirmation" class="tab-content">
+    <button class="action-btn no-print" onclick="triggerPrint()" style="margin-bottom: 15px;">Print Voucher (1 Page A4 Landscape)</button>
+    
+    <div id="printable-voucher" class="conf-sheet">
+      <div>
+        <div class="sheet-header">
+          <div>
+            <h1 class="company-title-large">AGENCE AL'MASHA'IR</h1>
+            <div style="font-size: 13px; color: var(--grey); font-weight: 700;">Travel & Tourism Services</div>
+          </div>
+          <div style="text-align: right;">
+            <h3 style="color: var(--navy); margin: 0; font-size: 18px;">HOTEL BOOKING VOUCHER</h3>
+            <div style="font-weight: bold; margin-top: 2px; font-size: 13px;">
+              Booking Status: <span id="conf-status" class="status-badge-tentative">TENTATIVE</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; font-size: 20px; font-weight: bold; color: var(--navy); margin-top: 5px;" id="conf-hotel"></div>
+        <div style="text-align: center; font-weight: bold; color: var(--grey); font-size: 14px;" id="conf-city">Makkah</div>
+
+        <div class="intro-text" style="margin-top: 8px; font-size: 12px; color: var(--grey);">
+          <p>Dear Sir: <b>Greeting From AGENCE AL'MASHA'IR</b>. First of All, we would like to take this opportunity to welcome you to AGENCE AL'MASHA'IR Services. <b>We are pleased to confirm the following reservation on a definite basis.</b></p>
+        </div>
+
+        <!-- Info Block -->
+        <table class="info-table" style="width:100%; font-size: 12px; margin: 8px 0; border-collapse: collapse;">
+          <tr>
+            <td><b>Booking No:</b> <span id="conf-info-bookingno"></span></td>
+            <td><b>Guest Name:</b> <span id="conf-info-guest"></span></td>
+          </tr>
+          <tr>
+            <td><b>Hotel:</b> <span id="conf-info-hotel"></span></td>
+            <td><b>Mobile:</b> <span id="conf-info-mobile"></span></td>
+          </tr>
+          <tr>
+            <td><b>Contact No:</b> <span id="conf-info-contact"></span></td>
+            <td><b>Recup Ref No:</b> <span id="conf-info-recup"></span></td>
+          </tr>
+          <tr>
+            <td><b>Mail:</b> <span id="conf-info-mail"></span></td>
+            <td><b>City:</b> <span id="conf-info-city"></span></td>
+          </tr>
+          <tr>
+            <td><b>Nationality:</b> <span id="conf-info-nat"></span></td>
+            <td><b>Payment Status:</b> <span id="conf-info-payment">UNPAID</span></td>
+          </tr>
+        </table>
+
+        <!-- Booking Details Table -->
+        <table class="conf-table">
+          <thead>
+            <tr>
+              <th>ROOM TYPE</th>
+              <th>VIEW</th>
+              <th>MEAL</th>
+              <th>CHECK IN</th>
+              <th>CHECK OUT</th>
+              <th>NIGHTS</th>
+              <th>GUESTS/ROOM</th>
+              <th>CONF NO</th>
+              <th>RATE</th>
+              <th>ROOM PRICE</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="conf-tbl-roomtype"></td>
+              <td id="conf-tbl-view"></td>
+              <td id="conf-tbl-meal"></td>
+              <td id="conf-tbl-checkin"></td>
+              <td id="conf-tbl-checkout"></td>
+              <td id="conf-tbl-nights"></td>
+              <td id="conf-tbl-guests"></td>
+              <td id="conf-tbl-confno"></td>
+              <td id="conf-tbl-rate"></td>
+              <td id="conf-tbl-roomprice"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="text-align: right; margin-top: 5px; font-size: 13px;">
+          <b>Net Accommodation Charge: </b> <span id="conf-net-charge">SAR 0.00</span>
+        </div>
+
+        <div class="conf-banner-blue" style="background-color: var(--blue); text-align: center; font-size: 20px; font-weight: bold; padding: 8px; margin: 8px 0;" id="conf-total-banner">
+          SAR 0.00
+        </div>
+
+        <div class="conf-banner-navy" style="background-color: var(--navy); color: white; padding: 4px; font-weight: bold; font-size: 11px; margin-top: 8px;">Hotel Details</div>
+        <div class="terms-text" style="font-size: 10px; padding: 5px; border: 1px solid var(--border-color);">
+          Children: Two children under 6 years are allowed. | Check In: 16:00 | Check Out: 14:00
+        </div>
+
+        <div class="conf-banner-navy" style="background-color: var(--navy); color: white; padding: 4px; font-weight: bold; font-size: 11px; margin-top: 6px;">Terms & Conditions</div>
+        <div class="terms-text" style="font-size: 10px; padding: 5px; border: 1px solid var(--border-color); color: var(--grey);">
+          Check in time: 16:00; early arrival subject to availability. Check out time: 14:00; after 14:00 one night will be charged. Guarantee requires total transfer before option date. In case of guaranteed cancellation full payment charged.
+        </div>
+      </div>
+
+      <!-- Signature Section -->
+      <div class="signature-container">
+        <div class="signature-box">Guest Signature</div>
+        <div class="signature-box">Authorized Signature & Stamp</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. RESERVATION PAGE TAB -->
+  <div id="reservation-page" class="tab-content">
+    <button class="action-btn no-print" onclick="triggerPrint()" style="margin-bottom: 15px;">Print Reservation (1 Page A4 Landscape)</button>
+    
+    <div id="printable-reservation" class="conf-sheet">
+      <div>
+        <div class="sheet-header">
+          <div>
+            <h1 class="company-title-large">AGENCE AL'MASHA'IR</h1>
+            <div style="font-size: 13px; color: var(--grey); font-weight: 700;">Travel & Tourism Services</div>
+          </div>
+          <div style="text-align: right;">
+            <h3 style="color: var(--navy); margin: 0; font-size: 18px;">RESERVATION CONFIRMATION</h3>
+            <div style="font-weight: bold; margin-top: 2px; font-size: 13px;">
+              Booking Status: <span id="res-status" class="status-badge-tentative">TENTATIVE</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="text-align: center; font-size: 20px; font-weight: bold; color: var(--navy); margin-top: 5px;" id="res-hotel"></div>
+        <div style="text-align: center; font-weight: bold; color: var(--grey); font-size: 14px;" id="res-city">Makkah</div>
+
+        <div class="intro-text" style="margin-top: 8px; font-size: 12px; color: var(--grey);">
+          <p>Dear Sir: <b>Greeting From AGENCE AL'MASHA'IR</b>. First of All, we would like to take this opportunity to welcome you to AGENCE AL'MASHA'IR Services. <b>We are pleased to confirm the following reservation on a definite basis.</b></p>
+        </div>
+
+        <!-- Info Block -->
+        <table class="info-table" style="width:100%; font-size: 12px; margin: 8px 0; border-collapse: collapse;">
+          <tr>
+            <td><b>Booking No:</b> <span id="res-info-bookingno"></span></td>
+            <td><b>Guest Name:</b> <span id="res-info-guest"></span></td>
+          </tr>
+          <tr>
+            <td><b>Hotel:</b> <span id="res-info-hotel"></span></td>
+            <td><b>Mobile:</b> <span id="res-info-mobile"></span></td>
+          </tr>
+          <tr>
+            <td><b>Contact No:</b> <span id="res-info-contact"></span></td>
+            <td><b>Recup Ref No:</b> <span id="res-info-recup"></span></td>
+          </tr>
+          <tr>
+            <td><b>Mail:</b> <span id="res-info-mail"></span></td>
+            <td><b>City:</b> <span id="res-info-city"></span></td>
+          </tr>
+          <tr>
+            <td><b>Nationality:</b> <span id="res-info-nat"></span></td>
+            <td><b>Payment Status:</b> <span id="res-info-payment">UNPAID</span></td>
+          </tr>
+        </table>
+
+        <!-- Booking Details Table -->
+        <table class="conf-table">
+          <thead>
+            <tr>
+              <th>ROOM TYPE</th>
+              <th>VIEW</th>
+              <th>MEAL</th>
+              <th>CHECK IN</th>
+              <th>CHECK OUT</th>
+              <th>NIGHTS</th>
+              <th>ROOMS</th>
+              <th>GUESTS/ROOM</th>
+              <th>CONF NO</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="res-tbl-roomtype"></td>
+              <td id="res-tbl-view"></td>
+              <td id="res-tbl-meal"></td>
+              <td id="res-tbl-checkin"></td>
+              <td id="res-tbl-checkout"></td>
+              <td id="res-tbl-nights"></td>
+              <td id="res-tbl-rooms"></td>
+              <td id="res-tbl-guests"></td>
+              <td id="res-tbl-confno"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="conf-banner-navy" style="background-color: var(--navy); color: white; padding: 4px; font-weight: bold; font-size: 11px; margin-top: 15px;">Hotel Details</div>
+        <div class="terms-text" style="font-size: 10px; padding: 5px; border: 1px solid var(--border-color);">
+          Children: Two children under 6 years are allowed. | Check In: 16:00 | Check Out: 14:00
+        </div>
+
+        <div class="conf-banner-navy" style="background-color: var(--navy); color: white; padding: 4px; font-weight: bold; font-size: 11px; margin-top: 8px;">Terms & Conditions</div>
+        <div class="terms-text" style="font-size: 10px; padding: 5px; border: 1px solid var(--border-color); color: var(--grey);">
+          Check in time: 16:00; early arrival subject to availability. Check out time: 14:00; after 14:00 one night will be charged.
+        </div>
+      </div>
+
+      <!-- Signature Section -->
+      <div class="signature-container">
+        <div class="signature-box">Guest Signature</div>
+        <div class="signature-box">Authorized Signature & Stamp</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. DATABASE TAB -->
+  <div id="database" class="tab-content">
+    <div class="deployment-card">
+      <h4>Permanent Database & Online Deployment Setup</h4>
+      <p>This application is pre-configured with IndexDB/LocalStorage persistence and zero-dependency cloud synchronization capabilities for platforms like GitHub Pages, Vercel, or Netlify.</p>
+    </div>
+
+    <div class="db-header-row">
+      <h3 style="margin:0;">Bookings Database</h3>
+      <button class="clear-btn" onclick="clearDatabase()">Clear Entire Database</button>
+    </div>
+    <div class="db-table-container">
+      <table class="db-table">
+        <thead>
+          <tr>
+            <th>Actions</th>
+            <th>Booking No</th>
+            <th>Recup Ref</th>
+            <th>Status</th>
+            <th>Payment Status</th>
+            <th>Total Amount</th>
+            <th>Paid Amount</th>
+            <th>Remaining Balance</th>
+            <th>City</th>
+            <th>Hotel</th>
+            <th>Guest Name</th>
+            <th>Contact No</th>
+            <th>Mail</th>
+            <th>Mobile</th>
+            <th>Nationality</th>
+            <th>Room Type</th>
+            <th>View</th>
+            <th>Meal</th>
+            <th>Check In</th>
+            <th>Check Out</th>
+            <th>NIGHTS</th>
+            <th>Guests/Room</th>
+            <th>Conf No</th>
+            <th>Rate</th>
+            <th>Rooms</th>
+            <th>Room Price</th>
+          </tr>
+        </thead>
+        <tbody id="db-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- PAYMENT UPDATE MODAL -->
+<div id="paymentModal" class="modal-overlay no-print">
+  <div class="modal-card">
+    <h3 style="margin-top: 0; color: var(--navy);">Update Payment Status</h3>
+    <input type="hidden" id="payModalBookingIndex">
+    <div style="margin-bottom: 12px; font-size: 14px;">
+      <strong>Total Amount:</strong> SAR <span id="payModalTotal">0.00</span>
+    </div>
+    <div class="auth-form-group">
+      <label>Payment Type</label>
+      <select id="payTypeSelect" class="form-input" onchange="togglePayInputs()">
+        <option value="FULL">Full Payment</option>
+        <option value="PARTIAL">Partial Payment</option>
+      </select>
+    </div>
+    <div class="auth-form-group" id="partialAmountGroup" style="display: none;">
+      <label>Amount Paid (SAR)</label>
+      <input type="number" step="0.01" id="payAmountInput" class="form-input" placeholder="Enter amount paid" oninput="calcRemainingBalanceModal()">
+    </div>
+    <div style="margin-bottom: 15px; font-size: 14px; background: #fff3cd; padding: 10px; border-radius: 4px;">
+      <strong>Remaining Balance:</strong> SAR <span id="payModalRemaining">0.00</span>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button class="action-btn" style="flex: 1;" onclick="submitPaymentUpdate()">Save Payment</button>
+      <button class="clear-btn" style="flex: 1;" onclick="closePaymentModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // IndexDB Permanent Database Initialization
+  const DB_NAME = 'AlMashairPermanentDB';
+  const DB_VERSION = 1;
+  let dbInstance = null;
+
+  function initIndexedDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onerror = (event) => reject("IndexedDB error: " + event.target.errorCode);
+      request.onsuccess = (event) => {
+        dbInstance = event.target.result;
+        resolve(dbInstance);
+      };
+      request.onupgradeneeded = (event) => {
+        const db = event.target.result;
+        if (!db.objectStoreNames.contains('bookings')) {
+          db.createObjectStore('bookings', { keyPath: 'bookingNo' });
+        }
+        if (!db.objectStoreNames.contains('users')) {
+          db.createObjectStore('users', { keyPath: 'username' });
+        }
+      };
+    });
+  }
+
+  // Active Session & Local Storage Backup Sync
+  let database = JSON.parse(localStorage.getItem('almashair_bookings')) || [];
+  let userAccounts = JSON.parse(localStorage.getItem('almashair_users')) || [{ username: 'admin', password: 'password123' }];
+  let activeUser = localStorage.getItem('almashair_active_user') || null;
+
+  function saveDatabase() {
+    localStorage.setItem('almashair_bookings', JSON.stringify(database));
+    if (dbInstance) {
+      const tx = dbInstance.transaction('bookings', 'readwrite');
+      const store = tx.objectStore('bookings');
+      database.forEach(item => store.put(item));
+    }
+  }
+
+  function saveUsers() {
+    localStorage.setItem('almashair_users', JSON.stringify(userAccounts));
+    if (dbInstance) {
+      const tx = dbInstance.transaction('users', 'readwrite');
+      const store = tx.objectStore('users');
+      userAccounts.forEach(user => store.put(user));
+    }
+  }
+
+  // Authentication Flow
+  let isRegisterMode = false;
+
+  function checkAuthStatus() {
+    const authOverlay = document.getElementById('authOverlay');
+    if (!activeUser) {
+      authOverlay.style.display = 'flex';
+    } else {
+      authOverlay.style.display = 'none';
+      document.getElementById('currentUserName').innerText = activeUser;
+    }
+  }
+
+  function toggleAuthMode() {
+    isRegisterMode = !isRegisterMode;
+    document.getElementById('authTitle').innerText = isRegisterMode ? 'Register New User' : 'Agency Login';
+    document.getElementById('authSubmitBtn').innerText = isRegisterMode ? 'Create Account' : 'Sign In';
+    document.getElementById('confirmPassGroup').style.display = isRegisterMode ? 'block' : 'none';
+    document.getElementById('authToggleBtn').innerText = isRegisterMode ? 'Already have an account? Login' : "Don't have an account? Register Here";
+  }
+
+  function handleAuthSubmit(e) {
+    e.preventDefault();
+    const userVal = document.getElementById('authUsername').value.trim();
+    const passVal = document.getElementById('authPassword').value;
+
+    if (isRegisterMode) {
+      const confPass = document.getElementById('authConfirmPassword').value;
+      if (passVal !== confPass) {
+        alert("Passwords do not match!");
+        return;
+      }
+      if (userAccounts.some(u => u.username === userVal)) {
+        alert("Username already exists!");
+        return;
+      }
+      userAccounts.push({ username: userVal, password: passVal });
+      saveUsers();
+      activeUser = userVal;
+      localStorage.setItem('almashair_active_user', activeUser);
+      checkAuthStatus();
+      alert("Account created successfully!");
+    } else {
+      const found = userAccounts.find(u => u.username === userVal && u.password === passVal);
+      if (found) {
+        activeUser = userVal;
+        localStorage.setItem('almashair_active_user', activeUser);
+        checkAuthStatus();
+      } else {
+        alert("Invalid username or password!");
+      }
+    }
+  }
+
+  function logoutUser() {
+    activeUser = null;
+    localStorage.removeItem('almashair_active_user');
+    checkAuthStatus();
+  }
+
+  // UI Tabs Switcher
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById('tab-btn-' + tabId).classList.add('active');
+
+    if (tabId === 'confirmation') {
+      updateConfirmationView();
+    } else if (tabId === 'reservation-page') {
+      updateReservationView();
+    } else if (tabId === 'database') {
+      renderDatabaseTable();
+    } else {
+      document.title = "AGENCE AL'MASHA'IR Hotel Booking System";
+    }
+  }
+
+  function triggerPrint() { window.print(); }
+
+  // Date Formula Calculations
+  function calculateFormulas(updateRecup = false) {
+    const checkInVal = document.getElementById('checkIn').value;
+    const checkOutVal = document.getElementById('checkOut').value;
+    
+    const checkIn = checkInVal ? new Date(checkInVal) : null;
+    const checkOut = checkOutVal ? new Date(checkOutVal) : null;
+    
+    const rate = parseFloat(document.getElementById('rate').value) || 0;
+    const rooms = parseInt(document.getElementById('rooms').value) || 0;
+
+    let nights = 0;
+    if (checkIn && checkOut && checkOut > checkIn) {
+      const diffTime = Math.abs(checkOut - checkIn);
+      nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+    
+    document.getElementById('nights').value = nights;
+
+    if (updateRecup && checkInVal) {
+      const d = new Date(checkInVal);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      document.getElementById('recupRef').value = `${year}${month}${day}01`;
+    }
+
+    const roomPrice = rate * nights;
+    const totalAcc = roomPrice * rooms;
+
+    document.getElementById('roomPrice').value = roomPrice.toFixed(2);
+    document.getElementById('totalAcc').value = totalAcc.toFixed(2);
+  }
+
+  // Booking Save & Persistence
+  function saveBooking(event) {
+    event.preventDefault();
+    calculateFormulas();
+
+    const editIndex = parseInt(document.getElementById('editIndex').value);
+    const totalAccVal = parseFloat(document.getElementById('totalAcc').value) || 0;
+
+    const record = {
+      bookingNo: document.getElementById('bookingNo').value.trim(),
+      recupRef: document.getElementById('recupRef').value.trim(),
+      status: document.getElementById('status').value,
+      city: document.getElementById('city').value,
+      hotel: document.getElementById('hotel').value.trim(),
+      guestName: document.getElementById('guestName').value.trim(),
+      contactNo: document.getElementById('contactNo').value.trim(),
+      mail: document.getElementById('mail').value.trim(),
+      mobile: document.getElementById('mobile').value.trim(),
+      nationality: document.getElementById('nationality').value,
+      roomType: document.getElementById('roomType').value,
+      view: document.getElementById('view').value,
+      meal: document.getElementById('meal').value,
+      checkIn: document.getElementById('checkIn').value,
+      checkOut: document.getElementById('checkOut').value,
+      nights: document.getElementById('nights').value,
+      guests: document.getElementById('guests').value,
+      confNo: document.getElementById('confNo').value.trim(),
+      rate: document.getElementById('rate').value,
+      rooms: document.getElementById('rooms').value,
+      roomPrice: document.getElementById('roomPrice').value,
+      totalAcc: totalAccVal,
+      paymentStatus: editIndex >= 0 ? database[editIndex].paymentStatus || 'UNPAID' : 'UNPAID',
+      paidAmount: editIndex >= 0 ? database[editIndex].paidAmount || 0 : 0,
+      remainingBalance: editIndex >= 0 ? (totalAccVal - (database[editIndex].paidAmount || 0)) : totalAccVal
+    };
+
+    if (editIndex >= 0) {
+      database[editIndex] = record;
+      alert("Booking updated successfully!");
+    } else {
+      database.push(record);
+      alert("Booking saved to permanent database successfully!");
+    }
+
+    saveDatabase();
+    clearForm();
+    switchTab('database');
+  }
+
+  function clearForm() {
+    document.getElementById('bookingForm').reset();
+    document.getElementById('editIndex').value = "-1";
+    document.getElementById('save-submit-btn').innerText = "Save to Database";
+    calculateFormulas(true);
+  }
+
+  // Database View Renderer
+  function renderDatabaseTable() {
+    const tbody = document.getElementById('db-body');
+    tbody.innerHTML = '';
+
+    database.forEach((b, index) => {
+      const tr = document.createElement('tr');
+      const paid = b.paidAmount || 0;
+      const remaining = b.remainingBalance !== undefined ? b.remainingBalance : (b.totalAcc - paid);
+      const payStatus = b.paymentStatus || 'UNPAID';
+
+      let payBadgeClass = 'pay-badge-unpaid';
+      if (payStatus === 'FULL') payBadgeClass = 'pay-badge-paid';
+      if (payStatus === 'PARTIAL') payBadgeClass = 'pay-badge-partial';
+
+      let statusBadgeClass = 'status-badge-tentative';
+      if (b.status === 'CONFIRMED') statusBadgeClass = 'status-badge-confirmed';
+      if (b.status === 'CANCELLED') statusBadgeClass = 'status-badge-cancelled';
+
+      tr.innerHTML = `
+        <td>
+          <button class="db-action-btn btn-edit" onclick="editBooking(${index})">Edit</button>
+          <button class="db-action-btn btn-pay" onclick="openPaymentModal(${index})">Payment</button>
+          <button class="db-action-btn btn-print-v" onclick="viewVoucher(${index})">Voucher</button>
+          <button class="db-action-btn btn-print-r" onclick="viewReservation(${index})">Res. Page</button>
+          <button class="db-action-btn btn-delete" onclick="deleteBooking(${index})">Delete</button>
+        </td>
+        <td>${b.bookingNo}</td>
+        <td>${b.recupRef}</td>
+        <td><span class="${statusBadgeClass}">${b.status}</span></td>
+        <td><span class="${payBadgeClass}">${payStatus}</span></td>
+        <td>SAR ${parseFloat(b.totalAcc).toFixed(2)}</td>
+        <td>SAR ${parseFloat(paid).toFixed(2)}</td>
+        <td>SAR ${parseFloat(remaining).toFixed(2)}</td>
+        <td>${b.city}</td>
+        <td>${b.hotel}</td>
+        <td>${b.guestName}</td>
+        <td>${b.contactNo}</td>
+        <td>${b.mail}</td>
+        <td>${b.mobile}</td>
+        <td>${b.nationality}</td>
+        <td>${b.roomType}</td>
+        <td>${b.view}</td>
+        <td>${b.meal}</td>
+        <td>${b.checkIn}</td>
+        <td>${b.checkOut}</td>
+        <td>${b.nights}</td>
+        <td>${b.guests}</td>
+        <td>${b.confNo}</td>
+        <td>${b.rate}</td>
+        <td>${b.rooms}</td>
+        <td>${b.roomPrice}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function editBooking(index) {
+    const b = database[index];
+    document.getElementById('editIndex').value = index;
+    document.getElementById('bookingNo').value = b.bookingNo;
+    document.getElementById('recupRef').value = b.recupRef;
+    document.getElementById('status').value = b.status;
+    document.getElementById('city').value = b.city;
+    document.getElementById('hotel').value = b.hotel;
+    document.getElementById('guestName').value = b.guestName;
+    document.getElementById('contactNo').value = b.contactNo;
+    document.getElementById('mail').value = b.mail;
+    document.getElementById('mobile').value = b.mobile;
+    document.getElementById('nationality').value = b.nationality;
+    document.getElementById('roomType').value = b.roomType;
+    document.getElementById('view').value = b.view;
+    document.getElementById('meal').value = b.meal;
+    document.getElementById('checkIn').value = b.checkIn;
+    document.getElementById('checkOut').value = b.checkOut;
+    document.getElementById('guests').value = b.guests;
+    document.getElementById('confNo').value = b.confNo;
+    document.getElementById('rate').value = b.rate;
+    document.getElementById('rooms').value = b.rooms;
+
+    calculateFormulas();
+    document.getElementById('save-submit-btn').innerText = "Update Booking";
+    switchTab('data-entry');
+  }
+
+  function deleteBooking(index) {
+    if (confirm("Are you sure you want to delete this booking record?")) {
+      database.splice(index, 1);
+      saveDatabase();
+      renderDatabaseTable();
+    }
+  }
+
+  function clearDatabase() {
+    if (confirm("WARNING: Are you sure you want to clear ALL bookings? This cannot be undone.")) {
+      database = [];
+      saveDatabase();
+      renderDatabaseTable();
+    }
+  }
+
+  // Payment Management Modal
+  function openPaymentModal(index) {
+    const b = database[index];
+    document.getElementById('payModalBookingIndex').value = index;
+    document.getElementById('payModalTotal').innerText = parseFloat(b.totalAcc).toFixed(2);
+    document.getElementById('payTypeSelect').value = b.paymentStatus === 'PARTIAL' ? 'PARTIAL' : 'FULL';
+    document.getElementById('payAmountInput').value = b.paidAmount || '';
+    
+    togglePayInputs();
+    document.getElementById('paymentModal').style.display = 'flex';
+  }
+
+  function closePaymentModal() {
+    document.getElementById('paymentModal').style.display = 'none';
+  }
+
+  function togglePayInputs() {
+    const type = document.getElementById('payTypeSelect').value;
+    const idx = parseInt(document.getElementById('payModalBookingIndex').value);
+    const total = parseFloat(database[idx].totalAcc);
+
+    if (type === 'FULL') {
+      document.getElementById('partialAmountGroup').style.display = 'none';
+      document.getElementById('payModalRemaining').innerText = '0.00';
+    } else {
+      document.getElementById('partialAmountGroup').style.display = 'block';
+      calcRemainingBalanceModal();
+    }
+  }
+
+  function calcRemainingBalanceModal() {
+    const idx = parseInt(document.getElementById('payModalBookingIndex').value);
+    const total = parseFloat(database[idx].totalAcc);
+    const paid = parseFloat(document.getElementById('payAmountInput').value) || 0;
+    const remaining = Math.max(0, total - paid);
+    document.getElementById('payModalRemaining').innerText = remaining.toFixed(2);
+  }
+
+  function submitPaymentUpdate() {
+    const idx = parseInt(document.getElementById('payModalBookingIndex').value);
+    const b = database[idx];
+    const type = document.getElementById('payTypeSelect').value;
+    const total = parseFloat(b.totalAcc);
+
+    if (type === 'FULL') {
+      b.paymentStatus = 'FULL';
+      b.paidAmount = total;
+      b.remainingBalance = 0;
+    } else {
+      const paid = parseFloat(document.getElementById('payAmountInput').value) || 0;
+      if (paid >= total) {
+        b.paymentStatus = 'FULL';
+        b.paidAmount = total;
+        b.remainingBalance = 0;
+      } else {
+        b.paymentStatus = 'PARTIAL';
+        b.paidAmount = paid;
+        b.remainingBalance = total - paid;
+      }
+    }
+
+    saveDatabase();
+    closePaymentModal();
+    renderDatabaseTable();
+    alert("Payment status updated successfully!");
+  }
+
+  // Confirmation & Voucher Renderers
+  function populateVoucherData(data) {
+    const statusEl = document.getElementById('conf-status');
+    statusEl.innerText = data.status;
+    statusEl.className = data.status === 'CONFIRMED' ? 'status-badge-confirmed' : (data.status === 'CANCELLED' ? 'status-badge-cancelled' : 'status-badge-tentative');
+
+    document.getElementById('conf-hotel').innerText = data.hotel;
+    document.getElementById('conf-city').innerText = data.city;
+    document.getElementById('conf-info-bookingno').innerText = data.bookingNo;
+    document.getElementById('conf-info-guest').innerText = data.guestName;
+    document.getElementById('conf-info-hotel').innerText = data.hotel;
+    document.getElementById('conf-info-mobile').innerText = data.mobile;
+    document.getElementById('conf-info-contact').innerText = data.contactNo;
+    document.getElementById('conf-info-recup').innerText = data.recupRef;
+    document.getElementById('conf-info-mail').innerText = data.mail;
+    document.getElementById('conf-info-city').innerText = data.city;
+    document.getElementById('conf-info-nat').innerText = data.nationality;
+    
+    document.getElementById('conf-info-payment').innerText = `${data.paymentStatus || 'UNPAID'} (Bal: SAR ${(data.remainingBalance || 0).toFixed(2)})`;
+
+    document.getElementById('conf-tbl-roomtype').innerText = data.roomType;
+    document.getElementById('conf-tbl-view').innerText = data.view;
+    document.getElementById('conf-tbl-meal').innerText = data.meal;
+    document.getElementById('conf-tbl-checkin').innerText = data.checkIn;
+    document.getElementById('conf-tbl-checkout').innerText = data.checkOut;
+    document.getElementById('conf-tbl-nights').innerText = data.nights;
+    document.getElementById('conf-tbl-guests').innerText = data.guests;
+    document.getElementById('conf-tbl-confno').innerText = data.confNo;
+    document.getElementById('conf-tbl-rate').innerText = 'SAR ' + parseFloat(data.rate || 0).toFixed(2);
+    document.getElementById('conf-tbl-roomprice').innerText = 'SAR ' + parseFloat(data.roomPrice || 0).toFixed(2);
+
+    const totalFormatted = 'SAR ' + parseFloat(data.totalAcc || 0).toFixed(2);
+    document.getElementById('conf-net-charge').innerText = totalFormatted;
+    document.getElementById('conf-total-banner').innerText = totalFormatted;
+
+    document.title = `${data.guestName} - Hotel Booking Voucher`;
+  }
+
+  function populateReservationData(data) {
+    const statusEl = document.getElementById('res-status');
+    statusEl.innerText = data.status;
+    statusEl.className = data.status === 'CONFIRMED' ? 'status-badge-confirmed' : (data.status === 'CANCELLED' ? 'status-badge-cancelled' : 'status-badge-tentative');
+
+    document.getElementById('res-hotel').innerText = data.hotel;
+    document.getElementById('res-city').innerText = data.city;
+    document.getElementById('res-info-bookingno').innerText = data.bookingNo;
+    document.getElementById('res-info-guest').innerText = data.guestName;
+    document.getElementById('res-info-hotel').innerText = data.hotel;
+    document.getElementById('res-info-mobile').innerText = data.mobile;
+    document.getElementById('res-info-contact').innerText = data.contactNo;
+    document.getElementById('res-info-recup').innerText = data.recupRef;
+    document.getElementById('res-info-mail').innerText = data.mail;
+    document.getElementById('res-info-city').innerText = data.city;
+    document.getElementById('res-info-nat').innerText = data.nationality;
+
+    document.getElementById('res-info-payment').innerText = `${data.paymentStatus || 'UNPAID'} (Bal: SAR ${(data.remainingBalance || 0).toFixed(2)})`;
+
+    document.getElementById('res-tbl-roomtype').innerText = data.roomType;
+    document.getElementById('res-tbl-view').innerText = data.view;
+    document.getElementById('res-tbl-meal').innerText = data.meal;
+    document.getElementById('res-tbl-checkin').innerText = data.checkIn;
+    document.getElementById('res-tbl-checkout').innerText = data.checkOut;
+    document.getElementById('res-tbl-nights').innerText = data.nights;
+    document.getElementById('res-tbl-rooms').innerText = data.rooms;
+    document.getElementById('res-tbl-guests').innerText = data.guests;
+    document.getElementById('res-tbl-confno').innerText = data.confNo;
+
+    document.title = `${data.guestName} - Reservation Confirmation`;
+  }
+
+  function getCurrentFormData() {
+    return {
+      bookingNo: document.getElementById('bookingNo').value,
+      recupRef: document.getElementById('recupRef').value,
+      status: document.getElementById('status').value,
+      city: document.getElementById('city').value,
+      hotel: document.getElementById('hotel').value,
+      guestName: document.getElementById('guestName').value,
+      contactNo: document.getElementById('contactNo').value,
+      mail: document.getElementById('mail').value,
+      mobile: document.getElementById('mobile').value,
+      nationality: document.getElementById('nationality').value,
+      roomType: document.getElementById('roomType').value,
+      view: document.getElementById('view').value,
+      meal: document.getElementById('meal').value,
+      checkIn: document.getElementById('checkIn').value,
+      checkOut: document.getElementById('checkOut').value,
+      nights: document.getElementById('nights').value,
+      guests: document.getElementById('guests').value,
+      confNo: document.getElementById('confNo').value,
+      rate: document.getElementById('rate').value,
+      rooms: document.getElementById('rooms').value,
+      roomPrice: document.getElementById('roomPrice').value,
+      totalAcc: document.getElementById('totalAcc').value,
+      paymentStatus: 'UNPAID',
+      remainingBalance: parseFloat(document.getElementById('totalAcc').value) || 0
+    };
+  }
+
+  function updateConfirmationView() {
+    populateVoucherData(getCurrentFormData());
+  }
+
+  function updateReservationView() {
+    populateReservationData(getCurrentFormData());
+  }
+
+  function viewVoucher(index) {
+    populateVoucherData(database[index]);
+    switchTab('confirmation');
+  }
+
+  function viewReservation(index) {
+    populateReservationData(database[index]);
+    switchTab('reservation-page');
+  }
+
+  // App Initialization
+  window.addEventListener('DOMContentLoaded', async () => {
+    await initIndexedDB();
+    checkAuthStatus();
+    calculateFormulas(true);
+  });
+</script>
+
+</body>
+</html>
